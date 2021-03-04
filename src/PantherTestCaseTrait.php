@@ -20,6 +20,7 @@ use Symfony\Component\Panther\Client as PantherClient;
 use Symfony\Component\Panther\ProcessManager\ChromeManager;
 use Symfony\Component\Panther\ProcessManager\FirefoxManager;
 use Symfony\Component\Panther\ProcessManager\WebServerManager;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Eases conditional class definition.
@@ -197,14 +198,19 @@ trait PantherTestCaseTrait
     /**
      * @param array $options see {@see $defaultOptions}
      */
-    protected static function createHttpBrowserClient(array $options = [], array $kernelOptions = []): HttpBrowserClient
+    protected static function createHttpBrowserClient(array $options = [], array $kernelOptions = []/*, HttpClientInterface $httpClient = null*/): HttpBrowserClient
     {
+        if (\func_num_args() < 3 && __CLASS__ !== static::class && __CLASS__ !== (new \ReflectionMethod(static::class, __FUNCTION__))->getDeclaringClass()->getName()) {
+            @trigger_error(sprintf('The "%s()" method will have a new "%s $httpClient = null" argument in version 2.0, not defining it is deprecated since Panther 1.1.', static::class.'::'.__FUNCTION__, HttpClientInterface::class), \E_USER_DEPRECATED);
+        }
+        $httpClient = 2 < \func_num_args() ? func_get_arg(2) : null;
+
         self::startWebServer($options);
 
         if (null === self::$httpBrowserClient) {
             // The ScopingHttpClient cant't be used cause the HttpBrowser only supports absolute URLs,
             // https://github.com/symfony/symfony/pull/35177
-            self::$httpBrowserClient = new HttpBrowserClient(HttpClient::create());
+            self::$httpBrowserClient = new HttpBrowserClient($httpClient ?? HttpClient::create());
         }
 
         if (\is_a(self::class, KernelTestCase::class, true)) {
